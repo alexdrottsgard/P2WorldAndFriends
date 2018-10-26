@@ -2,11 +2,8 @@ package se.mau.ag2656.p2worldandfriends;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -39,7 +36,7 @@ import org.json.JSONObject;
 import libs.mjn.prettydialog.PrettyDialog;
 import libs.mjn.prettydialog.PrettyDialogCallback;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, GoogleMap.OnMyLocationClickListener, GoogleMap.OnMyLocationButtonClickListener, GoogleMap.OnMapLongClickListener, CustomDialogClass.CustomDialogClassListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, GoogleMap.OnMyLocationClickListener, GoogleMap.OnMyLocationButtonClickListener, GoogleMap.OnMapLongClickListener, CustomDialogClass.CustomDialogListener {
 
     private GoogleMap mMap;
     private LocationManager locationManager;
@@ -129,8 +126,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void openDialog() {
-        CustomDialogClass customDialogClass = new CustomDialogClass();
-        customDialogClass.show(getSupportFragmentManager(), "exampleDialog");
+        CustomDialogClass customDialogClass = new CustomDialogClass(this);
+        customDialogClass.setTitle("Skriv in ditt gruppnamn");
+        customDialogClass.show();
     }
 
     private void initUIComponents() {
