@@ -1,68 +1,63 @@
 package se.mau.ag2656.p2worldandfriends;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.os.Bundle;
-import android.support.v7.app.AppCompatDialogFragment;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.view.KeyEvent;
-import android.view.LayoutInflater;
-import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+import android.widget.TextView;
 
-public class CustomDialogClass extends AppCompatDialogFragment {
+public class CustomDialogClass extends Dialog {
     private EditText editText;
-    private CustomDialogClassListener listener;
+    private TextView tvTitle;
+    private Context context;
+    private CustomDialogListener listener;
 
-    @Override
-    public Dialog onCreateDialog(Bundle savedInstanceState) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+    public CustomDialogClass(@NonNull Context context) {
+        super(context);
+        this.context = context;
 
-        LayoutInflater layoutInflater = getActivity().getLayoutInflater();
-        View view = layoutInflater.inflate(R.layout.custom_dialog, null);
 
-//        view.setBackgroundColor(Color.TRANSPARENT);
-//        view.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        setContentView(R.layout.custom_dialog);
+        getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-//        view.setBackground(new ColorDrawable(Color.TRANSPARENT));
-//        getView().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-//        alertDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        tvTitle = findViewById(R.id.tvTitle);
 
-//        getActivity().getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-        builder.setView(view).setTitle("Group Name").setOnKeyListener(new DialogInterface.OnKeyListener() {
+        editText = findViewById(R.id.etCustomDialog);
+        editText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
-            public boolean onKey(DialogInterface dialog, int keyCode, KeyEvent event) {
-                if (keyCode == EditorInfo.IME_ACTION_SEARCH || keyCode == EditorInfo.IME_ACTION_DONE || event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.KEYCODE_ENTER) {
-                    String editTextString = editText.getText().toString();
-                    listener.returnText(editTextString);
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.KEYCODE_ENTER) {
+                    listener.returnText(editText.getText().toString());
                     dismiss();
                     return true;
                 }
                 return false;
             }
         });
-
-        editText = view.findViewById(R.id.etCustomDialog);
-
-        return builder.create();
     }
 
     @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
-
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
         try {
-            listener = (CustomDialogClassListener) context;
+            listener = (CustomDialogListener) context;
         } catch (ClassCastException e) {
-            throw new ClassCastException(context.toString() + " must implement CustomDialogClassListener");
+            throw new ClassCastException(context.toString() + " must implement CustomDialogListener");
         }
     }
 
-    public interface CustomDialogClassListener {
+    public interface CustomDialogListener {
         void returnText(String groupName);
     }
 
+    @Override
+    public void setTitle(@Nullable CharSequence title) {
+        super.setTitle(title);
+        tvTitle.setText(title);
+    }
 }
