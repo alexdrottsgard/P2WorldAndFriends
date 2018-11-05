@@ -4,6 +4,7 @@ import android.location.Location;
 import android.text.Editable;
 import android.util.Log;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.DataInputStream;
@@ -28,13 +29,16 @@ public class UserClient {
     private InputStream inputStream;
     private DataOutputStream dataOutputStream;
     private OutputStream outputStream;
+    private boolean listening;
 
-    private boolean listening = true;
+    private ServerListener listener;
 
-    public UserClient(String username) {
+    public UserClient(String username, ServerListener listener) {
         this.username = username;
+        this.listener = listener;
         connectToServer();
         activateStreams();
+        listening = true;
         listenToServer();
     }
 
@@ -43,16 +47,10 @@ public class UserClient {
             @Override
             public void run() {
                 try {
-//                    JSONObject jsonObject = new JSONObject();
-//                    jsonObject.put("type", "register");
-//                    jsonObject.put("group", "Filips grupp");
-//                    jsonObject.put("member", username);
-
-
                     dataOutputStream.writeUTF(jsonObject.toString());
                     System.out.println("### " + "Sent JSON to server: " + jsonObject.toString() + " ###");
                 } catch (Exception e) {
-                    System.out.println("### " + "Failed to send to server" +" ###");
+                    System.out.println("### " + "Failed to send to server" + " ###");
                     e.printStackTrace();
                 }
             }
@@ -79,7 +77,7 @@ public class UserClient {
         });
         t.start();
 
-        try{
+        try {
             t.join();
         } catch (Exception e) {
             e.printStackTrace();
@@ -107,35 +105,44 @@ public class UserClient {
         Thread listenerThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                while (true) {
+                while (listening) {
                     try {
                         String message;
 //                        System.out.println("### " + message + " ###");
 
-                            message = dataInputStream.readUTF();
-                            JSONObject json = new JSONObject(message);
-                            String type = json.getString("type");
+                        message = dataInputStream.readUTF();
+                        JSONObject json = new JSONObject(message);
+                        String type = json.getString("type");
 //                            System.out.println("### Recieved JSON from sever:" + json.toString() + " ###");
 
-                            switch (type) {
-                                case "register":
-                                    id = json.getString("id");
-                                    groupList.add(id); // varje grupp man hoppar in i har ett unikt id.
-                                    System.out.println("### Joinat grupp: " + json.get("group") + " med id: " + id + " ###");
-                                    break;
-                                case "unregiser":
-                                    System.out.println("### Leavat grupp med id: " + json.get("id")+ " ###");
-                                    break;
-                                case "members":
+                        switch (type) {
+                            case "register":
+                                id = json.getString("id");
+                                groupList.add(id); // varje grupp man hoppar in i har ett unikt id.
+                                System.out.println("### Joinat grupp: " + json.get("group") + " med id: " + id + " ###");
+                                break;
+                            case "unregiser":
+                                System.out.println("### Leavat grupp med id: " + json.get("id") + " ###");
+                                break;
 
-                                    break;
-                                case "location":
+                            case "groups":
+                                listener.serverCallback(json);
+                                break;
+                            case "members":
+                                listener.serverCallback(json);
+                                Log.d(TAG, "run: Members:" + json.toString());
+                                break;
+                            case "location":
 
-                                    break;
-                                case "locations":
-                                    break;
-
-                            }
+                                break;
+                            case "locations":
+                                //sätt ut andras locations.
+                                listener.serverCallback(json);
+                                break;
+                            case "exception":
+                                Log.d(TAG, "EXCEPTION FROM SERVER: " + json.toString());
+                                break;
+                        }
 
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -155,11 +162,24 @@ public class UserClient {
     public void killConnection() {
         if (clientSocket != null) {
             try {
+                listening = false;
                 clientSocket.close();
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
 
+    public void restoreConnection() {
+        if (clientSocket.isClosed()) {
+            try {
+                connectToServer();
+                activateStreams();
+                listening = true;
+                listenToServer();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -181,18 +201,60 @@ public class UserClient {
         }
     }
 
-
     public void JSONMyGroup(String groupName) {
-        if(!groupName.isEmpty()) {
+        if (!groupName.isEmpty()) {
             JSONObject jsonObject = new JSONObject();
             try {
                 jsonObject.put("type", "register");
                 jsonObject.put("group", groupName);
-                jsonObject.put("member", "Juan Carlos");
+                jsonObject.put("member", username);
                 sendToServer(jsonObject);
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    public void requestGroups() {
+        JSONObject jsonObject = new JSONObject();
+        try {
+            jsonObject.put("type", "groups");
+            sendToServer(jsonObject);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void JSONGetGroupMembers(String groupName) {
+        if (!groupName.isEmpty()) {
+            JSONObject jsonObject = new JSONObject();
+            try {
+                jsonObject.put("type", "members");
+                jsonObject.put("group", groupName);
+                sendToServer(jsonObject);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void JSONLeaveGroup(String groupName) {
+        if (!groupName.isEmpty()) {
+
+            for (String group: groupList) {
+                if(group.startsWith(groupName)) {
+                    JSONObject jsonObject = new JSONObject();
+                    try {
+                        jsonObject.put("type", "unregister");
+                        jsonObject.put("id", group);
+                        sendToServer(jsonObject);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+
+
         }
     }
 }

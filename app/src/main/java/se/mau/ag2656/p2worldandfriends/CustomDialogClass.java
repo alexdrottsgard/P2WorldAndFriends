@@ -11,11 +11,14 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import mehdi.sakout.fancybuttons.FancyButton;
+
 public class CustomDialogClass extends Dialog {
     private EditText editText;
     private TextView tvTitle;
     private Context context;
     private CustomDialogListener listener;
+    private FancyButton btn_OK;
 
     public CustomDialogClass(@NonNull Context context) {
         super(context);
@@ -26,18 +29,22 @@ public class CustomDialogClass extends Dialog {
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
         tvTitle = findViewById(R.id.tvTitle);
+        btn_OK = findViewById(R.id.btn_ok);
+
+        btn_OK.setOnClickListener((v) -> {
+                    listener.editTextCallBack(editText.getText().toString());
+                    dismiss();
+                }
+        );
 
         editText = findViewById(R.id.etCustomDialog);
-        editText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.KEYCODE_ENTER) {
-                    listener.returnText(editText.getText().toString());
-                    dismiss();
-                    return true;
-                }
-                return false;
+        editText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.KEYCODE_ENTER) {
+                listener.editTextCallBack(editText.getText().toString());
+                dismiss();
+                return true;
             }
+            return false;
         });
     }
 
@@ -52,7 +59,10 @@ public class CustomDialogClass extends Dialog {
     }
 
     public interface CustomDialogListener {
-        void returnText(String groupName);
+        void editTextCallBack(String groupName);
+        void groupClickedCallBack(String groupName);
+        void joinGroupCallBack(String groupName);
+        void leaveGroupCallBack(String title);
     }
 
     @Override

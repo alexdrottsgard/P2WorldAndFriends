@@ -14,13 +14,7 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -28,24 +22,24 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import org.json.JSONObject;
 
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import libs.mjn.prettydialog.PrettyDialog;
 import libs.mjn.prettydialog.PrettyDialogCallback;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, GoogleMap.OnMyLocationClickListener, GoogleMap.OnMyLocationButtonClickListener, GoogleMap.OnMapLongClickListener, CustomDialogClass.CustomDialogListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, GoogleMap.OnMyLocationButtonClickListener, CustomDialogClass.CustomDialogListener, ServerListener {
 
     private GoogleMap mMap;
     private LocationManager locationManager;
     private SupportMapFragment mapFragment;
     private UserClient userClient;
 
-    private FloatingActionButton fabMain, fabSecond;
-    private EditText etGroupName;
-    private RelativeLayout rL;
+    private FloatingActionButton fabMenu, fabJoinGroup, fabListGroups;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,73 +63,58 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         } else {
             mapFragment.getMapAsync(this);
         }
-        userClient = new UserClient("Axelandr");
+        userClient = new UserClient("Axelandr", this);
 
     }
 
     private void initUIListeners() {
 
-        fabMain.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                fabMain.setImageResource(R.drawable.close);
-                if(fabSecond.isShown()) {
-                    fabSecond.hide();
-                    fabMain.setImageResource(R.drawable.openmenu);
-                } else {
-                    fabSecond.show();
-                }
+        fabMenu.setOnClickListener(v -> {
+            fabMenu.setImageResource(R.drawable.close);
+            if(fabJoinGroup.isShown()) {
+                resetMenu();
+            } else {
+                fabJoinGroup.show();
+                fabListGroups.show();
             }
         });
 
-        fabSecond.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(final View v) {
-                final PrettyDialog p = new PrettyDialog(v.getContext()).setTitle("Lägg till").setMessage("Vill du lägga till en grupp på denna positionen?");
-                p.addButton("Lägg till grupp", R.color.colorWhite, R.color.colorGreenLight, new PrettyDialogCallback() {
-                    @Override
-                    public void onClick() {
-                        Log.d("REE", "onClick: 3213211");
-                        openDialog();
-                        p.dismiss();
-                    }
-                });
-                p.show();
-            }
+        fabJoinGroup.setOnClickListener(v -> {
+            resetMenu();
+            final PrettyDialog p = new PrettyDialog(v.getContext()).setTitle("Lägg till").setMessage("Vill du lägga till en grupp på denna positionen?");
+            p.addButton("Lägg till grupp", R.color.colorWhite, R.color.colorGreen1, new PrettyDialogCallback() {
+                @Override
+                public void onClick() {
+                    openGroupNameDialog();
+                    p.dismiss();
+                }
+            });
+            p.show();
         });
 
-        etGroupName.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                if (actionId == EditorInfo.IME_ACTION_SEARCH || actionId == EditorInfo.IME_ACTION_DONE || event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.KEYCODE_ENTER) {
-                    userClient.JSONMyGroup(etGroupName.getText().toString());
-//                    rL.setVisibility(View.INVISIBLE);
-                    rL.setBackgroundResource(R.drawable.borderseethru);
-                    etGroupName.setVisibility(View.INVISIBLE);
-
-
-                    //closing keyboard on enter
-                    InputMethodManager imm = (InputMethodManager) getBaseContext().getSystemService(Context.INPUT_METHOD_SERVICE);
-                    imm.hideSoftInputFromWindow(etGroupName.getWindowToken(), 0);
-
-                }
-                return false;
-            }
+        fabListGroups.setOnClickListener(v -> {
+            resetMenu();
+            userClient.requestGroups();
         });
 
     }
 
-    private void openDialog() {
+    private void resetMenu() {
+        fabJoinGroup.hide();
+        fabListGroups.hide();
+        fabMenu.setImageResource(R.drawable.openmenu);
+    }
+
+    private void openGroupNameDialog() {
         CustomDialogClass customDialogClass = new CustomDialogClass(this);
         customDialogClass.setTitle("Skriv in ditt gruppnamn");
         customDialogClass.show();
     }
 
     private void initUIComponents() {
-        fabMain = findViewById(R.id.fabMain);
-        fabSecond = findViewById(R.id.fabTwo);
-        rL = findViewById(R.id.rL);
-        etGroupName = findViewById(R.id.etGroupName);
+        fabMenu = findViewById(R.id.fabMenu);
+        fabJoinGroup = findViewById(R.id.fabJoinGroup);
+        fabListGroups = findViewById(R.id.fabListGroups);
     }
 
     private void coordinates(Location location) {
@@ -164,12 +143,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         locationManager.requestLocationUpdates(locationManager.NETWORK_PROVIDER, 30000, 0, this);
 
 
-        mMap.setOnMapLongClickListener(this);
         mMap.setMyLocationEnabled(true);
         mMap.setOnMyLocationButtonClickListener(this);
-        mMap.setOnMyLocationClickListener(this);
-
-
 
         Location currentLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 
@@ -180,15 +155,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Add a marker in Sydney and move the camera
 //        LatLng sydney = new LatLng(-34, 151);
 //        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-    }
-
-    public void requestPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    1);
-        }
     }
 
     @Override
@@ -210,7 +176,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onLocationChanged(Location location) {
         userClient.JSONMyLocation(location);
-        System.out.println("### " + "sent location to server" +" ###");
     }
 
     @Override
@@ -229,63 +194,104 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     @Override
-    public void onMyLocationClick(@NonNull Location location) {
-        Toast.makeText(this, "Current location:\n" + location, Toast.LENGTH_LONG).show();
-    }
-
-    @Override
     public boolean onMyLocationButtonClick() {
         Toast.makeText(this, "MyLocation button clicked", Toast.LENGTH_SHORT).show();
         return false;
     }
 
     @Override
-    public void onMapLongClick(LatLng latLng) {
-
-        new PrettyDialog(this).setTitle("Lägg till").setMessage("Vill du lägga till en grupp på denna positionen?").show();
-        mMap.addMarker(new MarkerOptions()
-                .position(latLng));
-        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
-            @Override
-            public boolean onMarkerClick(Marker marker) {
-                JSONObject jsonObject = new JSONObject();
-                try {
-                    jsonObject.put("type", "register");
-                    jsonObject.put("group", "Axelandr Group");
-                    jsonObject.put("member", "Juan Carlos");
-                    userClient.sendToServer(jsonObject);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                return false;
-            }
-        });
-
-        mMap.setOnInfoWindowClickListener(new GoogleMap.OnInfoWindowClickListener() {
-            @Override
-            public void onInfoWindowClick(Marker marker) {
-                JSONObject jsonObject = new JSONObject();
-                try {
-                    jsonObject.put("type", "register");
-                    jsonObject.put("group", "Rajnfeldt Group");
-                    jsonObject.put("member", "Juan Carlos");
-                    userClient.sendToServer(jsonObject);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
-    @Override
     protected void onStop() {
         super.onStop();
+        locationManager.removeUpdates(this);
         userClient.killConnection();
     }
 
+    @SuppressLint("MissingPermission")
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        locationManager.requestLocationUpdates(locationManager.GPS_PROVIDER, 30000, 0, this);
+        locationManager.requestLocationUpdates(locationManager.NETWORK_PROVIDER, 30000, 0, this);
+        userClient.restoreConnection();
+    }
 
     @Override
-    public void returnText(String groupName) {
+    public void editTextCallBack(String groupName) {
+        fabJoinGroup.hide();
+        fabListGroups.hide();
+        fabMenu.setImageResource(R.drawable.openmenu);
+        userClient.JSONMyGroup(groupName);
+    }
 
+    @Override
+    public void groupClickedCallBack(String groupName) {
+        userClient.JSONGetGroupMembers(groupName);
+    }
+
+    @Override
+    public void joinGroupCallBack(String groupName) {
+        userClient.JSONMyGroup(groupName);
+    }
+
+    public void leaveGroupCallBack(String groupName) {
+        userClient.JSONLeaveGroup(groupName);
+    }
+
+    @Override
+    public void serverCallback(JSONObject jsonObject) {
+
+        runOnUiThread(() -> {
+            try {
+                String type = jsonObject.getString("type");
+                switch (type) {
+                    case "groups":
+                        JSONArray groups = jsonObject.getJSONArray("groups");
+                        String[] content = new String[groups.length()];
+
+                        for (int i = 0; i < groups.length(); i++) {
+                            JSONObject tempGroup = groups.getJSONObject(i);
+                            content[i] = tempGroup.getString("group");
+                        }
+
+                        ListDialog listDialogGroups = new ListDialog(MapsActivity.this, content);
+                        listDialogGroups.show();
+                        listDialogGroups.setTitle("Active Groups");
+                        break;
+
+                    case "members":
+                        JSONArray members = jsonObject.getJSONArray("members");
+                        String groupName = jsonObject.getString("group");
+                        String[] mContent = new String[members.length()];
+
+                        for (int i = 0; i < members.length(); i++) {
+                            JSONObject tempMember = members.getJSONObject(i);
+                            mContent[i] = tempMember.getString("member");
+                        }
+
+                        ListDialog listDialogMembers = new ListDialog(MapsActivity.this, mContent);
+                        listDialogMembers.show();
+                        listDialogMembers.setTitle(groupName);
+                        listDialogMembers.activateButton();
+                        break;
+
+                    case "locations":
+                        mMap.clear();
+
+                        JSONArray locations = jsonObject.getJSONArray("location");
+                        LatLng tempLatLng;
+                        for (int i = 0; i < locations.length(); i++) {
+                            JSONObject tempMember = locations.getJSONObject(i);
+
+                            double lat = Double.parseDouble(tempMember.getString("latitude"));
+                            double lon = Double.parseDouble(tempMember.getString("longitude"));
+                            tempLatLng = new LatLng(lat, lon);
+                            mMap.addMarker(new MarkerOptions().position(tempLatLng).title(tempMember.getString("member")));
+                        }
+                        break;
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
     }
 }
